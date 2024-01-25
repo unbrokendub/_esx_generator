@@ -16,9 +16,12 @@ import (
 )
 
 func randFloats(min, max float64, n int) []float64 {
+	source := rand.NewSource(time.Now().UnixNano())
+	rndm := rand.New(source)
+
 	res := make([]float64, n)
 	for i := range res {
-		res[i] = min + rand.Float64()*(max-min)
+		res[i] = min + rndm.Float64()*(max-min)
 	}
 	return res
 }
@@ -48,8 +51,8 @@ func ffmpegCut(input string, ouptut string, duration float64, cuttime string, st
 	fmt.Println("ffmpeg", "-ss", seek_string, "-i", input, "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "1", "-t", cuttime, ouptut)
 
 	cmd := exec.Command("ffmpeg", "-ss", seek_string, "-i", input, "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "1", "-t", cuttime, ouptut)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	//cmd.Stdout = os.Stdout
+	//cmd.Stderr = os.Stderr
 	err := cmd.Run()
 	if err != nil {
 
@@ -57,7 +60,10 @@ func ffmpegCut(input string, ouptut string, duration float64, cuttime string, st
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
+	lines_number := 0
+
+	source := rand.NewSource(time.Now().UnixNano())
+	rndm := rand.New(source)
 	arguments := os.Args[1:]
 	argumentOne := arguments[1]   //duration
 	argumetnTwo := arguments[0]   //number of slices
@@ -106,22 +112,33 @@ func main() {
 	var fileLines []string
 
 	for fileScanner.Scan() {
-		fileLines = append(fileLines, fileScanner.Text())
+		if strings.Contains(strings.ToLower(fileScanner.Text()), argumentThree) {
+			fileLines = append(fileLines, fileScanner.Text())
+			lines_number++
+		}
 
 	}
 	readFile.Close()
-	fmt.Println(fileLines[3])
+
+	rndm.Shuffle(len(fileLines), func(i, j int) {
+		fileLines[i],
+			fileLines[j] = fileLines[j],
+			fileLines[i]
+	})
 
 	for i := 0; i < slicesnumber; {
-		randomNumber := rand.Intn(79416)
+		randomNumber := rndm.Intn(lines_number)
 
 		if strings.Contains(strings.ToLower(fileLines[randomNumber]), argumentThree) {
+			fmt.Println("Random number is ", randomNumber)
+			fmt.Println("File is ", fileLines[randomNumber])
 			auDuration := audio_duration(fileLines[randomNumber])
 			fmt.Println(auDuration)
 			if auDuration > durationfloat {
 				ffmpegCut(fileLines[randomNumber], strconv.Itoa(randomNumber), auDuration, argumentOne, argumentFour)
 				i++
 			}
+			fmt.Println("===============================================================")
 		}
 
 	}
@@ -152,7 +169,7 @@ func main() {
 		fmt.Println("error")
 	}
 
-	newfilename := "/Users/unbrokendub/Desktop/AUDIO/SAMPLES/esx_generator/" + argumetnTwo + "_" + argumentOne + "_" + argumentThree + "_" + letters[rand.Intn(25)] + letters[rand.Intn(25)] + letters[rand.Intn(25)] + letters[rand.Intn(25)] + letters[rand.Intn(25)] + "_" + strconv.Itoa(rand.Intn(10000)) + ".wav"
+	newfilename := "/Users/unbrokendub/Desktop/AUDIO/SAMPLES/esx_generator/" + argumetnTwo + "_" + argumentOne + "_" + argumentThree + "_" + letters[rndm.Intn(25)] + letters[rndm.Intn(25)] + letters[rndm.Intn(25)] + letters[rndm.Intn(25)] + letters[rndm.Intn(25)] + "_" + strconv.Itoa(rndm.Intn(10000)) + ".wav"
 
 	cmd := exec.Command("ffmpeg", "-f", "concat", "-safe", "0", "-i", "list128.txt", "-c", "copy", newfilename)
 	cmd.Stdout = os.Stdout
