@@ -15,6 +15,14 @@ import (
 	"github.com/vansante/go-ffprobe"
 )
 
+func randFloats(min, max float64, n int) []float64 {
+	res := make([]float64, n)
+	for i := range res {
+		res[i] = min + rand.Float64()*(max-min)
+	}
+	return res
+}
+
 func audio_duration(filename string) float64 {
 	info, err := ffprobe.GetProbeData(filename, 5*time.Second)
 	if err != nil {
@@ -27,14 +35,17 @@ func audio_duration(filename string) float64 {
 	return duration
 }
 
-func ffmpegCut(input string, ouptut string, duration int, cuttime string) {
+func ffmpegCut(input string, ouptut string, duration float64, cuttime string, starttime string) {
 	ouptut = "/Users/unbrokendub/projects/esx_generator/tmp/" + ouptut + ".wav"
 
-	seek := rand.Intn(duration) - 1
-	if seek < 0 {
-		seek = seek + 1
+	seek := randFloats(0, duration, 1)
+	seek_string := "0"
+
+	if starttime == "r" {
+		seek_string = fmt.Sprintf("%f", seek[0])
 	}
-	seek_string := strconv.Itoa(seek)
+
+	fmt.Println("ffmpeg", "-ss", seek_string, "-i", input, "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "1", "-t", cuttime, ouptut)
 
 	cmd := exec.Command("ffmpeg", "-ss", seek_string, "-i", input, "-vn", "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "1", "-t", cuttime, ouptut)
 	cmd.Stdout = os.Stdout
@@ -48,10 +59,14 @@ func ffmpegCut(input string, ouptut string, duration int, cuttime string) {
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	arguments := os.Args[1:]
-	argumentOne := arguments[1]
-	argumetnTwo := arguments[0]
+	argumentOne := arguments[1]   //duration
+	argumetnTwo := arguments[0]   //number of slices
+	argumentThree := arguments[2] //keyword
+	argumentFour := arguments[3]  //cut start time (random or not)
 
 	slicesnumber, _ := strconv.Atoi(argumetnTwo)
+
+	durationfloat, _ := strconv.ParseFloat(argumentOne, 64)
 
 	letters := []string{"A", "B", "C", "D", "E", "F", "G", "H", "T", "U", "R", "E", "W", "Q", "X", "V", "N", "M", "K", "L", "O", "P", "J", "S", "T"}
 	// Provide the path to your audio file
@@ -99,12 +114,16 @@ func main() {
 
 	for i := 0; i < slicesnumber; {
 		randomNumber := rand.Intn(79416)
-		auDuration := audio_duration(fileLines[randomNumber])
-		fmt.Println(auDuration)
-		if auDuration > 1 {
-			ffmpegCut(fileLines[randomNumber], strconv.Itoa(randomNumber), int(auDuration), argumentOne)
-			i++
+
+		if strings.Contains(strings.ToLower(fileLines[randomNumber]), argumentThree) {
+			auDuration := audio_duration(fileLines[randomNumber])
+			fmt.Println(auDuration)
+			if auDuration > durationfloat {
+				ffmpegCut(fileLines[randomNumber], strconv.Itoa(randomNumber), auDuration, argumentOne, argumentFour)
+				i++
+			}
 		}
+
 	}
 
 	f, err := os.Create("list128.txt")
@@ -133,7 +152,7 @@ func main() {
 		fmt.Println("error")
 	}
 
-	newfilename := "wav/" + argumetnTwo + "_" + argumentOne + "_" + letters[rand.Intn(25)] + letters[rand.Intn(25)] + letters[rand.Intn(25)] + letters[rand.Intn(25)] + letters[rand.Intn(25)] + "_" + strconv.Itoa(rand.Intn(10000)) + ".wav"
+	newfilename := "/Users/unbrokendub/Desktop/AUDIO/SAMPLES/esx_generator/" + argumetnTwo + "_" + argumentOne + "_" + argumentThree + "_" + letters[rand.Intn(25)] + letters[rand.Intn(25)] + letters[rand.Intn(25)] + letters[rand.Intn(25)] + letters[rand.Intn(25)] + "_" + strconv.Itoa(rand.Intn(10000)) + ".wav"
 
 	cmd := exec.Command("ffmpeg", "-f", "concat", "-safe", "0", "-i", "list128.txt", "-c", "copy", newfilename)
 	cmd.Stdout = os.Stdout
