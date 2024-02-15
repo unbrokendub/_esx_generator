@@ -65,44 +65,49 @@ func main() {
 	source := rand.NewSource(time.Now().UnixNano())
 	rndm := rand.New(source)
 	arguments := os.Args[1:]
-	argumentOne := arguments[1]   //duration
-	argumetnTwo := arguments[0]   //number of slices
-	argumentThree := arguments[2] //keyword
-	argumentFour := arguments[3]  //cut start time (random or not)
+	argDuration := arguments[1]       //duration
+	argNumberOfSlices := arguments[0] //number of slices
+	argKeyword := arguments[2]        //keyword
+	aargCutStartTime := arguments[3]  //cut start time (random or not)
 
-	slicesnumber, _ := strconv.Atoi(argumetnTwo)
+	slicesnumber, _ := strconv.Atoi(argNumberOfSlices)
 
-	durationfloat, _ := strconv.ParseFloat(argumentOne, 64)
+	durationfloat, _ := strconv.ParseFloat(argDuration, 64)
 
 	letters := []string{"A", "B", "C", "D", "E", "F", "G", "H", "T", "U", "R", "E", "W", "Q", "X", "V", "N", "M", "K", "L", "O", "P", "J", "S", "T"}
-	// Provide the path to your audio file
-	//filePath := "cs60_vibra.wav"
 
-	//fmt.Println(audio_duration(filePath))
+	sam, err := os.Create("sampleslist.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	// remember to close the file
 
-	//fmt.Println("---------------------------")
+	err = filepath.Walk("/Users/unbrokendub/Desktop/AUDIO/SAMPLES",
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
 
-	// err := filepath.Walk("/Users/unbrokendub/Desktop/AUDIO/SAMPLES",
-	// 	func(path string, info os.FileInfo, err error) error {
-	// 		if err != nil {
-	// 			return err
-	// 		}
+			if strings.Contains(strings.ToLower(path), ".wav") || strings.Contains(strings.ToLower(path), ".mp3") || strings.Contains(strings.ToLower(path), ".aiff") {
+				if strings.Contains(strings.ToLower(path), ".asd") {
+					//do nothing
+				} else {
+					_, err2 := sam.WriteString(path + "\n")
+					if err != nil {
+						log.Fatal(err2)
+					}
+				}
+			}
 
-	// 		if strings.Contains(strings.ToLower(path), ".wav") || strings.Contains(strings.ToLower(path), ".mp3") || strings.Contains(strings.ToLower(path), ".aiff") {
-	// 			if strings.Contains(strings.ToLower(path), ".asd") {
-	// 				//do nothing
-	// 			} else {
-	// 				fmt.Println(path)
-	// 			}
-	// 		}
+			return nil
+		})
+	if err != nil {
+		fmt.Println("error")
+	}
 
-	// 		return nil
-	// 	})
-	// if err != nil {
-	// 	fmt.Println("error")
-	// }
+	sam.Close()
 
-	readFile, err := os.Open("list.txt")
+	readFile, err := os.Open("sampleslist.txt")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -112,12 +117,12 @@ func main() {
 	var fileLines []string
 
 	for fileScanner.Scan() {
-		if strings.Contains(strings.ToLower(fileScanner.Text()), argumentThree) {
+		if strings.Contains(strings.ToLower(fileScanner.Text()), argKeyword) {
 			fileLines = append(fileLines, fileScanner.Text())
 			lines_number++
 		}
-
 	}
+
 	readFile.Close()
 
 	rndm.Shuffle(len(fileLines), func(i, j int) {
@@ -126,16 +131,17 @@ func main() {
 			fileLines[i]
 	})
 
+	fmt.Println("Number of lines:", lines_number)
 	for i := 0; i < slicesnumber; {
 		randomNumber := rndm.Intn(lines_number)
 
-		if strings.Contains(strings.ToLower(fileLines[randomNumber]), argumentThree) {
+		if strings.Contains(strings.ToLower(fileLines[randomNumber]), argKeyword) {
 			fmt.Println("Random number is ", randomNumber)
 			fmt.Println("File is ", fileLines[randomNumber])
 			auDuration := audio_duration(fileLines[randomNumber])
 			fmt.Println(auDuration)
 			if auDuration > durationfloat {
-				ffmpegCut(fileLines[randomNumber], strconv.Itoa(randomNumber), auDuration, argumentOne, argumentFour)
+				ffmpegCut(fileLines[randomNumber], strconv.Itoa(i), auDuration, argDuration, aargCutStartTime)
 				i++
 			}
 			fmt.Println("===============================================================")
@@ -143,7 +149,7 @@ func main() {
 
 	}
 
-	f, err := os.Create("list128.txt")
+	f, err := os.Create("tmp_list.txt")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -169,9 +175,9 @@ func main() {
 		fmt.Println("error")
 	}
 
-	newfilename := "/Users/unbrokendub/Desktop/AUDIO/SAMPLES/esx_generator/" + argumetnTwo + "_" + argumentOne + "_" + argumentThree + "_" + letters[rndm.Intn(25)] + letters[rndm.Intn(25)] + letters[rndm.Intn(25)] + letters[rndm.Intn(25)] + letters[rndm.Intn(25)] + "_" + strconv.Itoa(rndm.Intn(10000)) + ".wav"
+	newfilename := "/Users/unbrokendub/Desktop/AUDIO/SAMPLES/esx_generator/" + argNumberOfSlices + "_" + argDuration + "_" + argKeyword + "_" + letters[rndm.Intn(25)] + letters[rndm.Intn(25)] + letters[rndm.Intn(25)] + letters[rndm.Intn(25)] + letters[rndm.Intn(25)] + "_" + strconv.Itoa(rndm.Intn(10000)) + ".wav"
 
-	cmd := exec.Command("ffmpeg", "-f", "concat", "-safe", "0", "-i", "list128.txt", "-c", "copy", newfilename)
+	cmd := exec.Command("ffmpeg", "-f", "concat", "-safe", "0", "-i", "tmp_list.txt", "-c", "copy", newfilename)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err3 := cmd.Run()
